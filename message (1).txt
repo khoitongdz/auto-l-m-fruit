@@ -82,8 +82,29 @@ local function autoCollectFruits()
     end
 end
 
+-- Function to join the "Navy" faction
+local function joinNavyFaction()
+    -- Replace this with the actual method to join the "Navy" faction
+    -- Example: finding the NPC that allows you to join
+    local npc = game.Workspace:FindFirstChild("NavyNPC")  -- Change this to the actual NPC name or location
+    if npc then
+        -- If the NPC is found, simulate interaction (e.g., click or chat command)
+        print("Joining Navy faction...")
+        -- Example: Simulate chat command to join Navy
+        game.ReplicatedStorage:WaitForChild("DefaultChatSystemChatEvents").SayMessageRequest:FireServer("/join Navy")
+        -- Or if using a remote function, use something like:
+        -- ReplicatedStorage:WaitForChild("FactionActions"):FireServer("Join", "Navy")
+    else
+        print("Navy NPC not found in the server!")
+    end
+end
+
 -- Link the "Auto Execute" button click event to start collecting fruits
 button.MouseButton1Click:Connect(function()
     print("Auto Execute has been activated!")
     autoCollectFruits()  -- Start auto collecting fruits
+
+    -- After server switch, join the Navy faction
+    wait(10)  -- Adjust the wait time as needed to ensure server switch occurs before joining Navy
+    joinNavyFaction()  -- Call function to join Navy faction
 end)
