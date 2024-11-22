@@ -1,9 +1,9 @@
--- Create GUI and "Auto Execute" button for the player
+-- Variables
 local player = game.Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local teleportService = game:GetService("TeleportService")
+local TeleportService = game:GetService("TeleportService")
 
--- Create GUI and "Auto Execute" button
+-- Create GUI for Auto Execute Button
 local screenGui = Instance.new("ScreenGui")
 screenGui.Parent = player:WaitForChild("PlayerGui")
 screenGui.Name = "AutoExecuteGui"
@@ -15,96 +15,78 @@ button.Position = UDim2.new(0.5, -100, 0.8, -25)
 button.Text = "Auto Execute"
 button.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
 
--- Function to check if the fruit is already in the inventory
-local function hasFruitInInventory(fruitName)
-    for _, item in pairs(player.Backpack:GetChildren()) do
-        if item.Name == fruitName then
-            return true
+-- Function to check if a chest is collectible
+local function isChest(chest)
+    return chest.Name == "Chest" and chest:FindFirstChild("HumanoidRootPart")
+end
+
+-- Function to collect chests
+local function collectChest(chest)
+    if isChest(chest) then
+        player.Character:MoveTo(chest.HumanoidRootPart.Position) -- Move to the chest's position
+        wait(1) -- Give time for collection animation (adjust if necessary)
+        ReplicatedStorage:WaitForChild("ChestActions"):FireServer("Collect", chest)
+        print("Collected chest: " .. chest.Name)
+    end
+end
+
+-- Function to detect special objects
+local function detectSpecialObject()
+    for _, obj in pairs(game.Workspace:GetChildren()) do
+        if obj.Name == "SpecialObject" then -- Replace with the name of the special object
+            print("Special object found: " .. obj.Name)
+            return obj
         end
     end
-    return false
+    return nil
 end
 
--- Function to collect the fruit
-local function collectFruit(fruit)
-    if not hasFruitInInventory(fruit.Name) then
-        -- Collect the fruit if not already in inventory
-        ReplicatedStorage:WaitForChild("FruitActions"):FireServer("Collect", fruit)
-        print("Collected " .. fruit.Name .. " fruit")
-    else
-        -- If fruit is already in the inventory, skip
-        print(fruit.Name .. " fruit is already in the inventory!")
+-- Function to summon boss
+local function summonBoss(object)
+    if object then
+        ReplicatedStorage:WaitForChild("BossActions"):FireServer("Summon", object)
+        print("Boss summoned with: " .. object.Name)
     end
 end
 
--- Function to fly to the fruit and collect it
-local function flyToFruit(fruit)
-    if fruit and fruit:FindFirstChild("HumanoidRootPart") then
-        -- Move to the position of the fruit
-        player.Character:MoveTo(fruit.HumanoidRootPart.Position)
-    end
+-- Function to switch servers
+local function switchServer()
+    print("Switching server...")
+    local servers = {"<server_id_1>", "<server_id_2>", "<server_id_3>"} -- Replace with valid instance IDs
+    local randomServer = servers[math.random(1, #servers)]
+    TeleportService:TeleportToPlaceInstance(game.PlaceId, randomServer)
 end
 
--- Function to auto collect fruits and switch server
-local function autoCollectFruits()
+-- Main function to auto-collect chests and handle special objects
+local function autoCollectChests()
     while true do
-        local fruitFound = false
+        local specialObject = detectSpecialObject()
+        if specialObject then
+            summonBoss(specialObject) -- Summon boss if special object is found
+            switchServer() -- Switch server after finding special object
+            break
+        end
 
-        -- Check all fruits in the game (you may need to specify the location of fruits more precisely)
-        for _, fruit in pairs(game.Workspace:GetChildren()) do
-            if fruit.Name == "Fruit" and fruit:FindFirstChild("HumanoidRootPart") then
-                -- Fly to and collect the fruit
-                flyToFruit(fruit)
-                collectFruit(fruit)
-                fruitFound = true
+        local chestsCollected = false
+        for _, chest in pairs(game.Workspace:GetChildren()) do
+            if isChest(chest) then
+                collectChest(chest)
+                chestsCollected = true
             end
         end
 
-        -- If no fruits found, switch server
-        if not fruitFound then
-            print("Collected all fruits in the server, switching server...")
-            -- Switch server (you can change this by adding valid server list)
-            local servers = {"<valid_instance_id_1>", "<valid_instance_id_2>", "<valid_instance_id_3>"}  -- Example valid instances
-            local randomServer = servers[math.random(1, #servers)]
-            
-            -- Check if teleportService exists and perform the server switch
-            if teleportService then
-                -- Teleport using a valid instance ID (you need to replace with actual instance IDs)
-                teleportService:TeleportToPlaceInstance(game.PlaceId, randomServer)
-                print("Attempting to switch to server with instance ID: " .. randomServer)
-            else
-                print("Cannot switch server, teleportService is unavailable.")
-            end
+        if not chestsCollected then
+            print("All chests collected, switching server...")
+            switchServer() -- Switch server if all chests are collected
+            break
         end
 
-        -- Wait a bit before checking again
-        wait(5)
+        wait(5) -- Wait before scanning again (adjust if needed)
     end
 end
 
--- Function to join the "Navy" faction
-local function joinNavyFaction()
-    -- Replace this with the actual method to join the "Navy" faction
-    -- Example: finding the NPC that allows you to join
-    local npc = game.Workspace:FindFirstChild("NavyNPC")  -- Change this to the actual NPC name or location
-    if npc then
-        -- If the NPC is found, simulate interaction (e.g., click or chat command)
-        print("Joining Navy faction...")
-        -- Example: Simulate chat command to join Navy
-        game.ReplicatedStorage:WaitForChild("DefaultChatSystemChatEvents").SayMessageRequest:FireServer("/join Navy")
-        -- Or if using a remote function, use something like:
-        -- ReplicatedStorage:WaitForChild("FactionActions"):FireServer("Join", "Navy")
-    else
-        print("Navy NPC not found in the server!")
-    end
-end
-
--- Link the "Auto Execute" button click event to start collecting fruits
+-- Connect button to start the process
 button.MouseButton1Click:Connect(function()
-    print("Auto Execute has been activated!")
-    autoCollectFruits()  -- Start auto collecting fruits
-
-    -- After server switch, join the Navy faction
-    wait(10)  -- Adjust the wait time as needed to ensure server switch occurs before joining Navy
-    joinNavyFaction()  -- Call function to join Navy faction
+    print("Auto Execute Activated!")
+    autoCollectChests()
 end)
