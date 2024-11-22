@@ -1,0 +1,89 @@
+-- Create GUI and "Auto Execute" button for the player
+local player = game.Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local teleportService = game:GetService("TeleportService")
+
+-- Create GUI and "Auto Execute" button
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = player:WaitForChild("PlayerGui")
+screenGui.Name = "AutoExecuteGui"
+
+local button = Instance.new("TextButton")
+button.Parent = screenGui
+button.Size = UDim2.new(0, 200, 0, 50)
+button.Position = UDim2.new(0.5, -100, 0.8, -25)
+button.Text = "Auto Execute"
+button.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+
+-- Function to check if the fruit is already in the inventory
+local function hasFruitInInventory(fruitName)
+    for _, item in pairs(player.Backpack:GetChildren()) do
+        if item.Name == fruitName then
+            return true
+        end
+    end
+    return false
+end
+
+-- Function to collect the fruit
+local function collectFruit(fruit)
+    if not hasFruitInInventory(fruit.Name) then
+        -- Collect the fruit if not already in inventory
+        ReplicatedStorage:WaitForChild("FruitActions"):FireServer("Collect", fruit)
+        print("Collected " .. fruit.Name .. " fruit")
+    else
+        -- If fruit is already in the inventory, skip
+        print(fruit.Name .. " fruit is already in the inventory!")
+    end
+end
+
+-- Function to fly to the fruit and collect it
+local function flyToFruit(fruit)
+    if fruit and fruit:FindFirstChild("HumanoidRootPart") then
+        -- Move to the position of the fruit
+        player.Character:MoveTo(fruit.HumanoidRootPart.Position)
+    end
+end
+
+-- Function to auto collect fruits and switch server
+local function autoCollectFruits()
+    while true do
+        local fruitFound = false
+
+        -- Check all fruits in the game (you may need to specify the location of fruits more precisely)
+        for _, fruit in pairs(game.Workspace:GetChildren()) do
+            if fruit.Name == "Fruit" and fruit:FindFirstChild("HumanoidRootPart") then
+                -- Fly to and collect the fruit
+                flyToFruit(fruit)
+                collectFruit(fruit)
+                fruitFound = true
+            end
+        end
+
+        -- If no fruits found, switch server
+        if not fruitFound then
+            print("Collected all fruits in the server, switching server...")
+            -- Switch server (you can change this by adding valid server list)
+            local servers = {"<valid_instance_id_1>", "<valid_instance_id_2>", "<valid_instance_id_3>"}  -- Example valid instances
+            local randomServer = servers[math.random(1, #servers)]
+            
+            -- Check if teleportService exists and perform the server switch
+            if teleportService then
+                -- Teleport using a valid instance ID (you need to replace with actual instance IDs)
+                teleportService:TeleportToPlaceInstance(game.PlaceId, randomServer)
+                print("Attempting to switch to server with instance ID: " .. randomServer)
+            else
+                print("Cannot switch server, teleportService is unavailable.")
+            end
+        end
+
+        -- Wait a bit before checking again
+        wait(5)
+    end
+end
+
+-- Link the "Auto Execute" button click event to start collecting fruits
+button.MouseButton1Click:Connect(function()
+    print("Auto Execute has been activated!")
+    autoCollectFruits()  -- Start auto collecting fruits
+end)
