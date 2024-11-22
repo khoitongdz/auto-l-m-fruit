@@ -2,31 +2,97 @@
 local player = game.Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TeleportService = game:GetService("TeleportService")
+local chestCounter = 0
 
--- Create GUI for Auto Execute Button
+-- Create GUI for Auto Execute and Counter
 local screenGui = Instance.new("ScreenGui")
 screenGui.Parent = player:WaitForChild("PlayerGui")
-screenGui.Name = "AutoExecuteGui"
+screenGui.Name = "KenonHubGui"
 
+-- Title Label
+local title = Instance.new("TextLabel")
+title.Parent = screenGui
+title.Size = UDim2.new(0, 300, 0, 50)
+title.Position = UDim2.new(0.5, -150, 0, 50)
+title.Text = "Kenon Hub - Auto to Chest"
+title.TextScaled = true
+title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+-- Chest Counter Label
+local chestCounterLabel = Instance.new("TextLabel")
+chestCounterLabel.Parent = screenGui
+chestCounterLabel.Size = UDim2.new(0, 300, 0, 50)
+chestCounterLabel.Position = UDim2.new(0.5, -150, 0, 110)
+chestCounterLabel.Text = "Chests Collected: 0"
+chestCounterLabel.TextScaled = true
+chestCounterLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+chestCounterLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+-- Auto Execute Button
 local button = Instance.new("TextButton")
 button.Parent = screenGui
 button.Size = UDim2.new(0, 200, 0, 50)
 button.Position = UDim2.new(0.5, -100, 0.8, -25)
 button.Text = "Auto Execute"
+button.TextScaled = true
 button.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
 
--- Function to check if a chest is collectible
+-- Function to check if an object is a chest
 local function isChest(chest)
-    return chest.Name == "Chest" and chest:FindFirstChild("HumanoidRootPart")
+    return chest and chest:IsA("Model") and chest.Name == "Chest" and chest:FindFirstChild("HumanoidRootPart")
 end
 
--- Function to collect chests
-local function collectChest(chest)
-    if isChest(chest) then
-        player.Character:MoveTo(chest.HumanoidRootPart.Position) -- Move to the chest's position
-        wait(1) -- Give time for collection animation (adjust if necessary)
-        ReplicatedStorage:WaitForChild("ChestActions"):FireServer("Collect", chest)
-        print("Collected chest: " .. chest.Name)
+-- Function to find the nearest chest
+local function findNearestChest()
+    local nearestChest = nil
+    local shortestDistance = math.huge
+    for _, chest in pairs(game.Workspace:GetChildren()) do
+        if isChest(chest) then
+            local chestPosition = chest.HumanoidRootPart.Position
+            local playerPosition = player.Character:WaitForChild("HumanoidRootPart").Position
+            local distance = (chestPosition - playerPosition).Magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                nearestChest = chest
+            end
+        end
+    end
+    return nearestChest
+end
+
+-- Function to move to a chest and collect it
+local function moveToChestAndCollect(chest)
+    if chest and chest:FindFirstChild("HumanoidRootPart") then
+        local chestPosition = chest.HumanoidRootPart.Position
+        player.Character:MoveTo(chestPosition)
+
+        -- Wait until the player is close enough to the chest
+        while (player.Character:WaitForChild("HumanoidRootPart").Position - chestPosition).Magnitude > 5 do
+            wait(0.1)
+        end
+
+        -- Trigger chest collection
+        local success, err = pcall(function()
+            ReplicatedStorage:WaitForChild("ChestActions"):FireServer("Collect", chest)
+        end)
+
+        if success then
+            print("Collected chest: " .. chest.Name)
+            chestCounter = chestCounter + 1
+            chestCounterLabel.Text = "Chests Collected: " .. chestCounter
+        else
+            warn("Failed to collect chest: " .. tostring(err))
+        end
+    end
+end
+
+-- Function to make the player jump to collect Beli
+local function jumpForBeli()
+    local humanoid = player.Character:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid.Jump = true
+        print("Player jumped to collect Beli!")
     end
 end
 
@@ -44,8 +110,15 @@ end
 -- Function to summon boss
 local function summonBoss(object)
     if object then
-        ReplicatedStorage:WaitForChild("BossActions"):FireServer("Summon", object)
-        print("Boss summoned with: " .. object.Name)
+        local success, err = pcall(function()
+            ReplicatedStorage:WaitForChild("BossActions"):FireServer("Summon", object)
+        end)
+
+        if success then
+            print("Boss summoned with: " .. object.Name)
+        else
+            warn("Failed to summon boss: " .. tostring(err))
+        end
     end
 end
 
@@ -67,21 +140,17 @@ local function autoCollectChests()
             break
         end
 
-        local chestsCollected = false
-        for _, chest in pairs(game.Workspace:GetChildren()) do
-            if isChest(chest) then
-                collectChest(chest)
-                chestsCollected = true
-            end
-        end
-
-        if not chestsCollected then
-            print("All chests collected, switching server...")
-            switchServer() -- Switch server if all chests are collected
+        local chest = findNearestChest()
+        if chest then
+            moveToChestAndCollect(chest)
+            jumpForBeli() -- Jump for Beli after collecting chest
+        else
+            print("No more chests found, switching server...")
+            switchServer() -- Switch server if no chests are found
             break
         end
 
-        wait(5) -- Wait before scanning again (adjust if needed)
+        wait(1) -- Wait before scanning again
     end
 end
 
